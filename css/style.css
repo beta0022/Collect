@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+  }
+
 body {
     background-image: linear-gradient(to right,#a28dce,#f192f0);
     color: #ffffff;

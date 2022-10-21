@@ -38,7 +38,7 @@ function initGame() {
 	gIsGlue = false
 	gIsBomb = false
 
-    gIntervalBall = setInterval(newBall, 3000)
+    gIntervalBall = setInterval(addBall, 3000)
 	gIntervalGlue = setInterval(addGlue, 5000)
 	gIntervalBomb = setInterval(addBomb, 10000)
 }
@@ -92,9 +92,7 @@ function renderBoard(board) {
 
 			var cellClass = getClassName({ i: i, j: j })
 
-			// TODO - change to short if statement
-			// if (currCell.type === FLOOR) cellClass += ' floor';
-			// else if (currCell.type === WALL) cellClass += ' wall';
+			//TODO - change to short if statement
 			cellClass += (currCell.type === FLOOR) ?  ' floor' : ' wall'
 
 			//TODO - Change To template string
@@ -119,54 +117,52 @@ function renderBoard(board) {
 }
 
 
-function newBall() {
-    var emptyCells = getEmptyCells()
-    var pos = emptyCells[getRandomIntInt(0, emptyCells.length - 1)]
-    gBoard[pos.i][pos.j].gameElement = BALL
-    renderCell(pos, BALL_IMG)
+function addBall() {
+	addElement(BALL, BALL_IMG)
 
     gBallsOnBoard++
 }
 
 
 function addGlue() {
-    var emptyCells = getEmptyCells()
-    var pos = emptyCells[getRandomIntInt(0, emptyCells.length - 1)]
+	addElement(GLUE, GLUE_IMG)
 
-	if (!pos) return
-	
-    gBoard[pos.i][pos.j].gameElement = GLUE
-    renderCell(pos, GLUE_IMG)
-
-	setTimeout(() => {
-		if(gBoard[pos.i][pos.j].gameElement === GLUE){
-			gBoard[pos.i][pos.j].gameElement = null
-			renderCell(pos, '')
-		}
-	}, 3000)
 }
 
 
 function addBomb() {
-    var emptyCells = getEmptyCells()
-    var pos = emptyCells[getRandomIntInt(0, emptyCells.length - 1)]
+	addElement(BOMB, BOMB_IMG)
 
-	if (!pos) return
+}
 
-    gBoard[pos.i][pos.j].gameElement = BOMB
-    renderCell(pos, BOMB_IMG)
 
-	setTimeout(() => {
-		if(gBoard[pos.i][pos.j].gameElement === BOMB){
-			gBoard[pos.i][pos.j].gameElement = null
-			renderCell(pos, '')
-		}
-	}, 5000)
+function addElement(gameElement, value) {
+	var location = getEmptyCells()
+
+	if (!location) return
+	
+    gBoard[location.i][location.j].gameElement = gameElement
+    renderCell(location, value)
+
+	if (gameElement === GLUE) setTimeout(removeElement, 3000,location)
+
+	else if (gameElement === BOMB) setTimeout(removeElement, 5000,location)
+	
+}
+
+function removeElement(location){
+	if (gBoard[location.i][location.j].gameElement !== GAMER) {
+		gBoard[location.i][location.j].gameElement = null
+		renderCell(location, '')
+	}
 }
 
 
 // Move the player to a specific location
 function moveTo(i, j) {
+
+	console.log(i,j)
+
 	if (gIsGlue || !gIsGameOn) return
 
 	var targetCell = gBoard[i][j]
@@ -183,51 +179,41 @@ function moveTo(i, j) {
 		if (targetCell.gameElement === BOMB) {
 			BOMB_SOUND.play()
 			gIsBomb = true
-			setPosition(i, j)
 			gameOver()
+			markCellsAround(i,j)
+			console.log('BOMB')
 		}
 
-		if (targetCell.gameElement === BALL) {
+		else if (targetCell.gameElement === BALL) {
 			COLLECT_SOUND.play()
 			console.log('COLLECTING')
 			gBallsCollectedCounter++
 			gBallsOnBoard--
 			document.querySelector('h2 span').innerText = gBallsCollectedCounter
-
-			if (gBallsOnBoard === 0) {
-				WIN_SOUND.play()
-				gameOver()
-			}
-
+			isVictory ()
 		}
 
-		if (targetCell.gameElement === GLUE) {
+		else if (targetCell.gameElement === GLUE) {
 			GLUE_SOUND.play()
 			gIsGlue = true
 			console.log('GLUED')
 			setTimeout(() => gIsGlue = false, 3000)
 		}
 
-		setPosition(i, j)
+		// Model:
+		gBoard[gGamerPos.i][gGamerPos.j].gameElement = null
+		// Dom:
+		renderCell(gGamerPos, '')
+		
+		// MOVING to selected position
+		// Model:
+		gGamerPos.i = i
+		gGamerPos.j = j
+		gBoard[gGamerPos.i][gGamerPos.j].gameElement = GAMER
+		// DOM:
+		renderCell(gGamerPos, GAMER_IMG)
 
 	} else console.log('TOO FAR')
-}
-
-
-// MOVING from current position
-function setPosition(i, j) {
-	// Model:
-	gBoard[gGamerPos.i][gGamerPos.j].gameElement = null
-	// Dom:
-	renderCell(gGamerPos, '')
-
-	// MOVING to selected position
-	// Model:
-	gGamerPos.i = i
-	gGamerPos.j = j
-	gBoard[gGamerPos.i][gGamerPos.j].gameElement = GAMER
-	// DOM:
-	renderCell(gGamerPos, GAMER_IMG)
 }
 
 
@@ -245,6 +231,14 @@ function restarGame() {
 }
 
 
+function isVictory () {
+	if (gBallsOnBoard === 0) {
+		WIN_SOUND.play()
+		gameOver()
+	}
+}
+
+
 function gameOver() {
 	gIsGameOn = false
 	clearInterval(gIntervalBomb)
@@ -254,28 +248,71 @@ function gameOver() {
 
 	var elContainer = document.querySelector('.btn-container')
 	elContainer.classList.remove('hide')
+}
 
-	if (gIsBomb) {
 
-		for (var i = 0; i < gBoard.length; i++) {
-			var releativePositionI = gGamerPos.i - i
-	
-			if (Math.abs(releativePositionI) <= 1) {
-	
-				for (var j = 0; j < gBoard[i].length; j++) {
-	
-					if (gGamerPos.i === i && gGamerPos.j === j) continue
-	
-					var releativePositionJ = gGamerPos.j - j
-	
-					if (Math.abs(releativePositionJ) <= 1) {
-	
-						var bombedCellClassName = "cell-" + i + "-" + j;
-						var bombedCell = document.getElementsByClassName(bombedCellClassName)[0]
-						bombedCell.style.backgroundColor = "#800000"
-					}
-				}
-			}
+function markCellsAround(i,j) {
+
+	gGamerPos.i = i
+	gGamerPos.j = j
+
+	for (var i = gGamerPos.i - 1; i <= gGamerPos.i + 1; i++) {
+
+        for (var j = gGamerPos.j - 1; j <= gGamerPos.j + 1; j++) {
+
+            if (i === gGamerPos.i && j === gGamerPos.j) continue
+
+			var markCell = getClassName({ i: i, j: j })
+			var elBombCell = document.getElementsByClassName(markCell)[0]
+			elBombCell.style.backgroundColor = "#800000"
 		}
+    }
+}
+
+
+// Move the player by keyboard arrows
+function handleKey(event) {
+
+	var i = gGamerPos.i
+	var j = gGamerPos.j
+
+
+	switch (event.key) {
+		case 'ArrowLeft':
+			if (j === 0) j = gBoard[0].length - 1
+            else j--
+			break
+
+		case 'ArrowRight':
+			if (j === gBoard[0].length - 1) j = 0
+            else j++
+			break
+
+		case 'ArrowUp':
+            if (i === 0) i = gBoard.length - 1
+            else i--
+			break
+
+		case 'ArrowDown':
+            if (i === gBoard.length - 1) i = 0
+            else i++
+			break
 	}
+
+    moveTo(i, j)
+}
+
+
+function getEmptyCells(){
+	var emptyCells = []
+    for (var i = 0; i < gBoard.length; i++) {
+
+        for (var j = 0; j < gBoard[i].length; j++) {
+			
+            if (gBoard[i][j].gameElement === null && gBoard[i][j].type === FLOOR)
+			emptyCells.push({ i, j })
+        }
+    }
+
+    return emptyCells[getRandomInt(0, emptyCells.length)]
 }
